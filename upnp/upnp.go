@@ -27,6 +27,11 @@ func UPNPService() (service, error) {
 	if err != nil {
 		return service{}, err
 	}
+	locationN := strings.SplitN(header.Get("LOCATION"), "/", 4)
+	if len(locationN) < 3 {
+		return s, fmt.Errorf("invalid location: %s", header.Get("LOCATION"))
+	}
+	s.Location = strings.Join(locationN[:3], "/")
 	return s, nil
 }
 
@@ -76,6 +81,7 @@ type service struct {
 	ControlURL  string   `xml:"controlURL"`
 	EventSubURL string   `xml:"eventSubURL"`
 	SCPDURL     string   `xml:"SCPDURL"`
+	Location    string   `xml:"-"`
 }
 type device struct {
 	XMLName      xml.Name  `xml:"device"`
@@ -177,13 +183,12 @@ func newEnvelopeReq(action string, s service, b body) (*http.Request, error) {
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println(string(body))
 	buf := bytes.NewBuffer(nil)
-	buf.Grow(len(body) + len(body))
+	buf.Grow(len(xml.Header) + len(body))
 	buf.Write([]byte(xml.Header))
 	buf.Write(body)
 
-	req, err := http.NewRequest(http.MethodPost, "http://192.168.1.1:1900"+s.ControlURL, buf)
+	req, err := http.NewRequest(http.MethodPost, s.Location+s.ControlURL, buf)
 
 	if err != nil {
 		return nil, err
