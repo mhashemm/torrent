@@ -3,8 +3,12 @@ package main
 import (
 	"fmt"
 
-	"github.com/mhashemm/torrent/upnp"
+	"github.com/mhashemm/torrent/bencode"
 )
+
+type Test struct {
+	X *int `bencode:"x"`
+}
 
 func main() {
 	// _, err := upnp.AddPortMapping(upnp.AddPortMappingMsg{
@@ -16,9 +20,12 @@ func main() {
 	// 	NewPortMappingDescription: "hey man",
 	// 	NewLeaseDuration:          0,
 	// })
-	_, err := upnp.DeletePortMapping(upnp.DeletePortMappingMsg{
-		NewExternalPort: 6969,
-		NewProtocol:     "TCP",
-	})
+	// _, err := upnp.DeletePortMapping(upnp.DeletePortMappingMsg{
+	// 	NewExternalPort: 6969,
+	// 	NewProtocol:     "TCP",
+	// })
+	x := 69
+	bc, err := bencode.Marshal(Test{X: &x})
+	fmt.Println(string(bc))
 	fmt.Println(err)
 }
