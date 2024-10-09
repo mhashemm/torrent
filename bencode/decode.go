@@ -24,10 +24,15 @@ func (s *scanner) next() byte {
 	return s.current()
 }
 
+func (s *scanner) skipTo(c byte) {
+	for s.i < len(s.data) && s.data[s.i] != c {
+		s.i += 1
+	}
+}
+
 func (s *scanner) skipString() {
 	start := s.i
-	for s.next() != ':' {
-	}
+	s.skipTo(':')
 	end := s.i
 	s.next()
 	length, _ := strconv.ParseInt(string(s.data[start:end]), 10, 64)
@@ -35,8 +40,7 @@ func (s *scanner) skipString() {
 }
 
 func (s *scanner) skipInt() {
-	for s.next() != 'e' {
-	}
+	s.skipTo('e')
 	s.next()
 }
 
@@ -63,8 +67,7 @@ func (s *scanner) int64(rv reflect.Value) error {
 		return fmt.Errorf("invalid int64 at %d", s.i)
 	}
 	start := s.i + 1
-	for s.next() != 'e' {
-	}
+	s.skipTo('e')
 	end := s.i
 	s.next()
 	value, err := strconv.ParseInt(string(s.data[start:end]), 10, 64)
@@ -86,8 +89,7 @@ func (s *scanner) string(rv reflect.Value) error {
 		return fmt.Errorf("invalid string format at %d", s.i)
 	}
 	start := s.i
-	for s.next() != ':' {
-	}
+	s.skipTo(':')
 	end := s.i
 	s.next()
 	length, err := strconv.ParseInt(string(s.data[start:end]), 10, 64)
