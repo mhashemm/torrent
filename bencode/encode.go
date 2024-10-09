@@ -2,9 +2,11 @@ package bencode
 
 import (
 	"bytes"
+	"encoding/base64"
 	"fmt"
 	"reflect"
 	"strconv"
+	"strings"
 )
 
 func Marshal(v any) ([]byte, error) {
@@ -52,6 +54,17 @@ func marshalMap(v reflect.Value, buf *bytes.Buffer) {
 	buf.WriteByte('e')
 }
 
+func marshalByteSlice(v []byte, buf *bytes.Buffer) {
+	count := base64.StdEncoding.EncodedLen(len(v))
+	b := bytes.NewBuffer(make([]byte, 0, count))
+	e := base64.NewEncoder(base64.StdEncoding, b)
+	e.Write(v)
+	e.Close()
+	buf.WriteString(strconv.Itoa(count))
+	buf.WriteByte(':')
+	buf.Write(b.Bytes())
+}
+
 func marshalValue(v reflect.Value, buf *bytes.Buffer) {
 	switch v.Kind() {
 	case reflect.Int8, reflect.Int16, reflect.Int, reflect.Int32, reflect.Int64:
@@ -61,11 +74,15 @@ func marshalValue(v reflect.Value, buf *bytes.Buffer) {
 	case reflect.String:
 		marshalString(v.String(), buf)
 	case reflect.Slice, reflect.Array:
+		if v, ok := v.Interface().([]byte); ok {
+			marshalByteSlice(v, buf)
+			return
+		}
 		marshalSlice(v, buf)
 	case reflect.Map:
 		marshalMap(v, buf)
 	case reflect.Struct:
-		marshalStruct(v, buf)
+		marshalStruct(v.Interface(), buf)
 	case reflect.Pointer:
 		if v.IsNil() {
 			return
@@ -76,23 +93,26 @@ func marshalValue(v reflect.Value, buf *bytes.Buffer) {
 
 func marshalStruct(v any, buf *bytes.Buffer) error {
 	buf.WriteByte('d')
-	t, val := reflect.TypeOf(v), reflect.ValueOf(v)
-	for i := 0; i < t.NumField(); i++ {
-		if !t.Field(i).IsExported() {
+	typ, val := reflect.TypeOf(v), reflect.ValueOf(v)
+	for i := 0; i < typ.NumField(); i++ {
+		if !typ.Field(i).IsExported() || (val.Field(i).Kind() == reflect.Pointer && val.Field(i).IsNil()) {
 			continue
 		}
-		name, ok := t.Field(i).Tag.Lookup("bencode")
-		if !ok {
-			name = t.Field(i).Name
+		tag, _ := typ.Field(i).Tag.Lookup("bencode")
+		if strings.Contains(tag, "omitempty") {
+			continue
 		}
-		fmt.Println(name)
-		marshalValue(val.Field(i), buf)
-		// fmt.Println(fv)
+		name, _, _ := strings.Cut(tag, ",")
+		if name == "-" {
+			continue
+		}
+		if name == "" {
+			name = typ.Field(i).Name
+		}
+		fv := val.Field(i)
+		marshalString(name, buf)
+		marshalValue(fv, buf)
 	}
 	buf.WriteByte('e')
-	return nil
-}
-
-func Unmarshal(data []byte, v any) error {
 	return nil
 }
